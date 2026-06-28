@@ -1,12 +1,12 @@
-'use strict';
+﻿'use strict';
 
 /**
- * Orders API Routes — Supertest Tests (TDD Red Phase)
+ * Orders API Routes â€” Supertest Tests (TDD Red Phase)
  * Written BEFORE the routes are implemented.
  *
  * POST /api/orders flow under test:
- *   validate body → find cart → checkStock each item → calculateTotal →
- *   processPayment → decrementStock (w/ rollback) → Order.create → Cart.deleteOne
+ *   validate body â†’ find cart â†’ checkStock each item â†’ calculateTotal â†’
+ *   processPayment â†’ decrementStock (w/ rollback) â†’ Order.create â†’ Cart.deleteOne
  *
  * Response contract:
  *   success  { success: true,  data: <order> }
@@ -15,12 +15,34 @@
 
 const request = require('supertest');
 const mongoose = require('mongoose');
+const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
 const app = require('../../server');
 const Order = require('../../models/order.model');
 const Cart = require('../../models/cart.model');
 const Product = require('../../models/product.model');
+const User = require('../../models/user.model');
 
-// ─── Shared fixtures ──────────────────────────────────────────────────────────
+// â”€â”€â”€ Auth setup â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// Create a user once, sign a token. Because protect() is stateless (JWT only),
+// the token stays valid even after afterEach wipes the users collection.
+
+let authToken;
+
+beforeAll(async () => {
+  const hash = await bcrypt.hash('TestPass123!', 10);
+  const user = await User.create({ email: 'orders-test@example.com', password: hash });
+  authToken = jwt.sign(
+    { id: user._id, email: user.email },
+    process.env.JWT_SECRET || 'test-secret',
+    { expiresIn: '24h' },
+  );
+});
+
+/** Adds the Bearer token to any Supertest request chain */
+const authed = (req) => req.set('Authorization', `Bearer ${authToken}`);
+
+// â”€â”€â”€ Shared fixtures â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 const SESSION_ID = 'order-test-session-001';
 
@@ -51,14 +73,14 @@ const seedCartWithProduct = async (productOverrides = {}, quantity = 2) => {
   return { product, cart };
 };
 
-// ─── POST /api/orders ─────────────────────────────────────────────────────────
+// â”€â”€â”€ POST /api/orders â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 describe('POST /api/orders', () => {
-  // ── Body validation ──────────────────────────────────────────────────────────
+  // â”€â”€ Body validation â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   describe('body validation', () => {
     it('returns 422 when sessionId is missing', async () => {
-      const res = await request(app).post('/api/orders').send({
+      const res = await authed(request(app).post('/api/orders')).send({
         shippingAddress: validShipping,
         cardLastFour: '1234',
       });
@@ -69,7 +91,7 @@ describe('POST /api/orders', () => {
     });
 
     it('returns 422 when shippingAddress is missing entirely', async () => {
-      const res = await request(app).post('/api/orders').send({
+      const res = await authed(request(app).post('/api/orders')).send({
         sessionId: SESSION_ID,
         cardLastFour: '1234',
       });
@@ -78,7 +100,7 @@ describe('POST /api/orders', () => {
     });
 
     it('returns 422 when shippingAddress.street is missing', async () => {
-      const res = await request(app).post('/api/orders').send({
+      const res = await authed(request(app).post('/api/orders')).send({
         sessionId: SESSION_ID,
         shippingAddress: { city: 'London', postcode: 'SW1A 1AA', country: 'UK' },
         cardLastFour: '1234',
@@ -88,7 +110,7 @@ describe('POST /api/orders', () => {
     });
 
     it('returns 422 when shippingAddress.city is missing', async () => {
-      const res = await request(app).post('/api/orders').send({
+      const res = await authed(request(app).post('/api/orders')).send({
         sessionId: SESSION_ID,
         shippingAddress: { street: '1 Road', postcode: 'SW1A 1AA', country: 'UK' },
         cardLastFour: '1234',
@@ -98,7 +120,7 @@ describe('POST /api/orders', () => {
     });
 
     it('returns 422 when shippingAddress.postcode is missing', async () => {
-      const res = await request(app).post('/api/orders').send({
+      const res = await authed(request(app).post('/api/orders')).send({
         sessionId: SESSION_ID,
         shippingAddress: { street: '1 Road', city: 'London', country: 'UK' },
         cardLastFour: '1234',
@@ -108,7 +130,7 @@ describe('POST /api/orders', () => {
     });
 
     it('returns 422 when shippingAddress.country is missing', async () => {
-      const res = await request(app).post('/api/orders').send({
+      const res = await authed(request(app).post('/api/orders')).send({
         sessionId: SESSION_ID,
         shippingAddress: { street: '1 Road', city: 'London', postcode: 'SW1A 1AA' },
         cardLastFour: '1234',
@@ -118,7 +140,7 @@ describe('POST /api/orders', () => {
     });
 
     it('returns 422 when cardLastFour is missing', async () => {
-      const res = await request(app).post('/api/orders').send({
+      const res = await authed(request(app).post('/api/orders')).send({
         sessionId: SESSION_ID,
         shippingAddress: validShipping,
       });
@@ -127,7 +149,7 @@ describe('POST /api/orders', () => {
     });
 
     it('returns 422 when cardLastFour is fewer than 4 digits', async () => {
-      const res = await request(app).post('/api/orders').send({
+      const res = await authed(request(app).post('/api/orders')).send({
         sessionId: SESSION_ID,
         shippingAddress: validShipping,
         cardLastFour: '123',
@@ -137,7 +159,7 @@ describe('POST /api/orders', () => {
     });
 
     it('returns 422 when cardLastFour contains non-digit characters', async () => {
-      const res = await request(app).post('/api/orders').send({
+      const res = await authed(request(app).post('/api/orders')).send({
         sessionId: SESSION_ID,
         shippingAddress: validShipping,
         cardLastFour: '12ab',
@@ -147,11 +169,11 @@ describe('POST /api/orders', () => {
     });
   });
 
-  // ── Business logic errors ────────────────────────────────────────────────────
+  // â”€â”€ Business logic errors â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   describe('business logic errors', () => {
     it('returns 404 when no cart exists for the sessionId', async () => {
-      const res = await request(app).post('/api/orders').send({
+      const res = await authed(request(app).post('/api/orders')).send({
         sessionId: 'no-cart-for-this-session',
         shippingAddress: validShipping,
         cardLastFour: '1234',
@@ -165,7 +187,7 @@ describe('POST /api/orders', () => {
     it('returns 422 when the cart exists but is empty', async () => {
       await Cart.create({ sessionId: SESSION_ID, items: [] });
 
-      const res = await request(app).post('/api/orders').send({
+      const res = await authed(request(app).post('/api/orders')).send({
         sessionId: SESSION_ID,
         shippingAddress: validShipping,
         cardLastFour: '1234',
@@ -180,7 +202,7 @@ describe('POST /api/orders', () => {
       // product stock=2 but cart quantity=5
       await seedCartWithProduct({ stock: 2 }, 5);
 
-      const res = await request(app).post('/api/orders').send({
+      const res = await authed(request(app).post('/api/orders')).send({
         sessionId: SESSION_ID,
         shippingAddress: validShipping,
         cardLastFour: '1234',
@@ -194,7 +216,7 @@ describe('POST /api/orders', () => {
     it('does not decrement stock when stock check fails', async () => {
       const { product } = await seedCartWithProduct({ stock: 2 }, 5);
 
-      await request(app).post('/api/orders').send({
+      await authed(request(app).post('/api/orders')).send({
         sessionId: SESSION_ID,
         shippingAddress: validShipping,
         cardLastFour: '1234',
@@ -205,13 +227,13 @@ describe('POST /api/orders', () => {
     });
   });
 
-  // ── Successful order creation ─────────────────────────────────────────────────
+  // â”€â”€ Successful order creation â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   describe('successful order creation', () => {
     it('returns 201 with { success: true, data: order }', async () => {
       await seedCartWithProduct({}, 2);
 
-      const res = await request(app).post('/api/orders').send({
+      const res = await authed(request(app).post('/api/orders')).send({
         sessionId: SESSION_ID,
         shippingAddress: validShipping,
         cardLastFour: '4242',
@@ -226,7 +248,7 @@ describe('POST /api/orders', () => {
     it('order has the correct sessionId', async () => {
       await seedCartWithProduct({}, 2);
 
-      const res = await request(app).post('/api/orders').send({
+      const res = await authed(request(app).post('/api/orders')).send({
         sessionId: SESSION_ID,
         shippingAddress: validShipping,
         cardLastFour: '4242',
@@ -238,7 +260,7 @@ describe('POST /api/orders', () => {
     it('order status defaults to "pending"', async () => {
       await seedCartWithProduct({}, 2);
 
-      const res = await request(app).post('/api/orders').send({
+      const res = await authed(request(app).post('/api/orders')).send({
         sessionId: SESSION_ID,
         shippingAddress: validShipping,
         cardLastFour: '4242',
@@ -247,10 +269,10 @@ describe('POST /api/orders', () => {
       expect(res.body.data.status).toBe('pending');
     });
 
-    it('order totalAmount equals product price × quantity', async () => {
+    it('order totalAmount equals product price Ã— quantity', async () => {
       const { product } = await seedCartWithProduct({ price: 29.99 }, 3);
 
-      const res = await request(app).post('/api/orders').send({
+      const res = await authed(request(app).post('/api/orders')).send({
         sessionId: SESSION_ID,
         shippingAddress: validShipping,
         cardLastFour: '4242',
@@ -263,7 +285,7 @@ describe('POST /api/orders', () => {
     it('order item has priceAtPurchase equal to the product price at time of order', async () => {
       const { product } = await seedCartWithProduct({ price: 49.99 }, 2);
 
-      const res = await request(app).post('/api/orders').send({
+      const res = await authed(request(app).post('/api/orders')).send({
         sessionId: SESSION_ID,
         shippingAddress: validShipping,
         cardLastFour: '4242',
@@ -275,7 +297,7 @@ describe('POST /api/orders', () => {
     it('order item quantity matches the cart quantity', async () => {
       await seedCartWithProduct({}, 3);
 
-      const res = await request(app).post('/api/orders').send({
+      const res = await authed(request(app).post('/api/orders')).send({
         sessionId: SESSION_ID,
         shippingAddress: validShipping,
         cardLastFour: '4242',
@@ -287,7 +309,7 @@ describe('POST /api/orders', () => {
     it('order shippingAddress matches the submitted address', async () => {
       await seedCartWithProduct({}, 1);
 
-      const res = await request(app).post('/api/orders').send({
+      const res = await authed(request(app).post('/api/orders')).send({
         sessionId: SESSION_ID,
         shippingAddress: validShipping,
         cardLastFour: '4242',
@@ -303,7 +325,7 @@ describe('POST /api/orders', () => {
     it('cart is deleted after a successful order', async () => {
       await seedCartWithProduct({}, 2);
 
-      await request(app).post('/api/orders').send({
+      await authed(request(app).post('/api/orders')).send({
         sessionId: SESSION_ID,
         shippingAddress: validShipping,
         cardLastFour: '4242',
@@ -316,7 +338,7 @@ describe('POST /api/orders', () => {
     it('product stock is decremented by the ordered quantity', async () => {
       const { product } = await seedCartWithProduct({ stock: 10 }, 3);
 
-      await request(app).post('/api/orders').send({
+      await authed(request(app).post('/api/orders')).send({
         sessionId: SESSION_ID,
         shippingAddress: validShipping,
         cardLastFour: '4242',
@@ -329,7 +351,7 @@ describe('POST /api/orders', () => {
     it('order is persisted to the database', async () => {
       await seedCartWithProduct({}, 2);
 
-      const res = await request(app).post('/api/orders').send({
+      const res = await authed(request(app).post('/api/orders')).send({
         sessionId: SESSION_ID,
         shippingAddress: validShipping,
         cardLastFour: '4242',
@@ -351,7 +373,7 @@ describe('POST /api/orders', () => {
         ],
       });
 
-      const res = await request(app).post('/api/orders').send({
+      const res = await authed(request(app).post('/api/orders')).send({
         sessionId: SESSION_ID,
         shippingAddress: validShipping,
         cardLastFour: '9999',
@@ -369,14 +391,14 @@ describe('POST /api/orders', () => {
     });
   });
 
-  // ── Payment declined ─────────────────────────────────────────────────────────
+  // â”€â”€ Payment declined â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   describe('payment declined', () => {
     it('returns 422 when the calculated total exceeds the payment threshold', async () => {
-      // price=1000, quantity=11 → total=11000 (> 9999 decline threshold)
+      // price=1000, quantity=11 â†’ total=11000 (> 9999 decline threshold)
       await seedCartWithProduct({ price: 1000, stock: 20 }, 11);
 
-      const res = await request(app).post('/api/orders').send({
+      const res = await authed(request(app).post('/api/orders')).send({
         sessionId: SESSION_ID,
         shippingAddress: validShipping,
         cardLastFour: '0000',
@@ -390,7 +412,7 @@ describe('POST /api/orders', () => {
     it('does not decrement stock when payment is declined', async () => {
       const { product } = await seedCartWithProduct({ price: 1000, stock: 20 }, 11);
 
-      await request(app).post('/api/orders').send({
+      await authed(request(app).post('/api/orders')).send({
         sessionId: SESSION_ID,
         shippingAddress: validShipping,
         cardLastFour: '0000',
@@ -403,7 +425,7 @@ describe('POST /api/orders', () => {
     it('does not delete the cart when payment is declined', async () => {
       await seedCartWithProduct({ price: 1000, stock: 20 }, 11);
 
-      await request(app).post('/api/orders').send({
+      await authed(request(app).post('/api/orders')).send({
         sessionId: SESSION_ID,
         shippingAddress: validShipping,
         cardLastFour: '0000',
@@ -416,7 +438,7 @@ describe('POST /api/orders', () => {
     it('does not create an order record when payment is declined', async () => {
       await seedCartWithProduct({ price: 1000, stock: 20 }, 11);
 
-      await request(app).post('/api/orders').send({
+      await authed(request(app).post('/api/orders')).send({
         sessionId: SESSION_ID,
         shippingAddress: validShipping,
         cardLastFour: '0000',
@@ -427,7 +449,7 @@ describe('POST /api/orders', () => {
     });
   });
 
-  // ── Stock rollback ───────────────────────────────────────────────────────────
+  // â”€â”€ Stock rollback â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   describe('stock rollback on order save failure', () => {
     afterEach(() => {
@@ -440,7 +462,7 @@ describe('POST /api/orders', () => {
       // Force the Order model create to fail after stock has been decremented
       jest.spyOn(Order, 'create').mockRejectedValueOnce(new Error('DB write error'));
 
-      await request(app).post('/api/orders').send({
+      await authed(request(app).post('/api/orders')).send({
         sessionId: SESSION_ID,
         shippingAddress: validShipping,
         cardLastFour: '4242',
@@ -452,7 +474,7 @@ describe('POST /api/orders', () => {
   });
 });
 
-// ─── GET /api/orders/:id ──────────────────────────────────────────────────────
+// â”€â”€â”€ GET /api/orders/:id â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 describe('GET /api/orders/:id', () => {
   let order;
@@ -468,7 +490,7 @@ describe('GET /api/orders/:id', () => {
   });
 
   it('returns 200 with { success: true, data: order } for a valid id', async () => {
-    const res = await request(app).get(`/api/orders/${order._id}`);
+    const res = await authed(request(app).get(`/api/orders/${order._id}`));
 
     expect(res.statusCode).toBe(200);
     expect(res.body.success).toBe(true);
@@ -477,7 +499,7 @@ describe('GET /api/orders/:id', () => {
   });
 
   it('returns the correct order fields', async () => {
-    const res = await request(app).get(`/api/orders/${order._id}`);
+    const res = await authed(request(app).get(`/api/orders/${order._id}`));
     const { data } = res.body;
 
     expect(data.sessionId).toBe(SESSION_ID);
@@ -490,7 +512,7 @@ describe('GET /api/orders/:id', () => {
 
   it('returns 404 with { success: false } when order does not exist', async () => {
     const nonExistentId = new mongoose.Types.ObjectId();
-    const res = await request(app).get(`/api/orders/${nonExistentId}`);
+    const res = await authed(request(app).get(`/api/orders/${nonExistentId}`));
 
     expect(res.statusCode).toBe(404);
     expect(res.body.success).toBe(false);
@@ -498,9 +520,16 @@ describe('GET /api/orders/:id', () => {
   });
 
   it('returns 422 when id is not a valid ObjectId', async () => {
-    const res = await request(app).get('/api/orders/not-a-valid-id');
+    const res = await authed(request(app).get('/api/orders/not-a-valid-id'));
 
     expect(res.statusCode).toBe(422);
     expect(res.body.success).toBe(false);
   });
 });
+
+
+
+
+
+
+

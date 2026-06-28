@@ -49,7 +49,7 @@ app.use('/api', apiLimiter);
 app.use('/api/products', require('./routes/products'));
 app.use('/api/cart',     require('./routes/cart'));
 app.use('/api/orders',   require('./routes/orders'));
-// TODO (P20): Mount auth routes     → app.use('/api/auth',     require('./routes/auth'));
+app.use('/api/auth', require('./routes/auth'));
 
 // Health check
 app.get('/health', (req, res) => {

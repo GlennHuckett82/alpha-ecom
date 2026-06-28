@@ -8,6 +8,7 @@ const Product = require('../models/product.model');
 const { checkStock, decrementStock } = require('../services/inventoryService');
 const { calculateOrderTotal } = require('../services/pricingService');
 const { processPayment } = require('../services/paymentService');
+const { protect } = require('../middleware/auth');
 
 const router = Router();
 
@@ -36,7 +37,7 @@ const sendValidationErrors = (req, res) => {
 //   9. Cart.deleteOne to clear cart
 //  10. Return 201 with the new order
 
-router.post('/', [
+router.post('/', protect, [
   body('sessionId')
     .notEmpty()
     .withMessage('sessionId is required')
@@ -150,7 +151,7 @@ router.post('/', [
 
 // ─── GET /api/orders/:id ──────────────────────────────────────────────────────
 
-router.get('/:id', [
+router.get('/:id', protect, [
   param('id')
     .isMongoId()
     .withMessage('id must be a valid MongoDB ObjectId'),
