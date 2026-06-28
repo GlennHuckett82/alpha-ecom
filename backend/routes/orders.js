@@ -47,19 +47,23 @@ router.post('/', [
   body('shippingAddress.street')
     .notEmpty()
     .withMessage('shippingAddress.street is required')
-    .trim(),
+    .trim()
+    .escape(),
   body('shippingAddress.city')
     .notEmpty()
     .withMessage('shippingAddress.city is required')
-    .trim(),
+    .trim()
+    .escape(),
   body('shippingAddress.postcode')
     .notEmpty()
     .withMessage('shippingAddress.postcode is required')
-    .trim(),
+    .trim()
+    .escape(),
   body('shippingAddress.country')
     .notEmpty()
     .withMessage('shippingAddress.country is required')
-    .trim(),
+    .trim()
+    .escape(),
   body('cardLastFour')
     .matches(/^\d{4}$/)
     .withMessage('cardLastFour must be exactly 4 digits'),

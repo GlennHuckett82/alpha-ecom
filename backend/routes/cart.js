@@ -68,7 +68,8 @@ router.post('/', [
   body('sessionId')
     .notEmpty()
     .withMessage('sessionId is required')
-    .trim(),
+    .trim()
+    .escape(),
   body('productId')
     .isMongoId()
     .withMessage('productId must be a valid MongoDB ObjectId'),

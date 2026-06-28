@@ -26,15 +26,19 @@ const validationErrorHandler = (err, req, res, next) => {
  */
 // eslint-disable-next-line no-unused-vars
 const generalErrorHandler = (err, req, res, next) => {
-  if (process.env.NODE_ENV !== 'test') {
+  // Respect an explicit HTTP status code set on the error (e.g. 403 from CORS)
+  const status = err.statusCode && err.statusCode >= 400 && err.statusCode < 600
+    ? err.statusCode
+    : 500;
+  if (status === 500 && process.env.NODE_ENV !== 'test') {
     // eslint-disable-next-line no-console
     console.error('[Server Error]', err.stack || err.message);
   }
   const isProduction = process.env.NODE_ENV === 'production';
-  const message = isProduction
+  const message = isProduction && status === 500
     ? 'An internal server error occurred'
     : (err.message || 'An internal server error occurred');
-  return res.status(500).json({ success: false, error: message });
+  return res.status(status).json({ success: false, error: message });
 };
 
 module.exports = { notFoundHandler, validationErrorHandler, generalErrorHandler };

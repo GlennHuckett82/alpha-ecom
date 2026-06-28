@@ -15,7 +15,18 @@ app.use(helmet());
 app.use(compression());
 app.use(morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev'));
 app.use(cors({
-  origin: (process.env.CORS_ORIGIN || 'http://localhost:5500').split(','),
+  origin: (origin, callback) => {
+    const allowed = (process.env.CORS_ORIGIN || 'http://localhost:5500')
+      .split(',')
+      .map((o) => o.trim());
+    if (!origin || allowed.includes(origin)) {
+      callback(null, true);
+    } else {
+      const err = new Error('Not allowed by CORS');
+      err.statusCode = 403;
+      callback(err);
+    }
+  },
   methods: ['GET', 'POST', 'PUT', 'DELETE'],
   allowedHeaders: ['Content-Type', 'Authorization'],
 }));

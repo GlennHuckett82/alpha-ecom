@@ -103,9 +103,11 @@ describe('validationErrorHandler', () => {
     expect(res.body.errors[1].path).toBe('price');
   });
 
-  it('passes non-422 errors through to the general error handler (returns 500)', async () => {
+  it('passes non-422 errors through to the general error handler (preserves statusCode)', async () => {
+    // The test route throws an error with statusCode 403 — not a validation error,
+    // so validationErrorHandler skips it and generalErrorHandler uses err.statusCode.
     const res = await request(app).get('/test/non-validation-error');
-    expect(res.statusCode).toBe(500);
+    expect(res.statusCode).toBe(403);
   });
 });
 
