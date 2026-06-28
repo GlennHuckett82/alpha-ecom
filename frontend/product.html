@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Product details." />
+  <title>Product Details — Alpha Store</title>
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+
+  <header class="site-header">
+    <div class="container header-inner">
+      <a href="index.html" class="site-logo">Alpha Store</a>
+      <nav aria-label="Primary navigation">
+        <a href="index.html">Shop</a>
+        <a href="cart.html" class="cart-link" aria-label="Shopping cart, 0 items">
+          <span class="cart-icon" aria-hidden="true">🛒</span>
+          <span class="cart-badge" id="cart-badge" aria-live="polite">0</span>
+        </a>
+      </nav>
+    </div>
+  </header>
+
+  <main id="product-detail" class="container">
+    <!-- Breadcrumb — populated in P34 -->
+    <nav aria-label="Breadcrumb" class="breadcrumb">
+      <ol>
+        <li><a href="index.html">Home</a></li>
+        <li><a href="index.html">Products</a></li>
+        <li aria-current="page" id="breadcrumb-product-name">Loading…</li>
+      </ol>
+    </nav>
+
+    <!-- Aria live region for loading/error states -->
+    <div role="status" aria-live="polite" id="detail-status"></div>
+
+    <!-- Product content — populated by JS in P34 -->
+    <article id="product-detail-content" class="product-detail">
+      <figure class="product-detail__figure">
+        <img id="product-image" src="" alt="" loading="eager" decoding="async" />
+        <figcaption id="product-image-caption"></figcaption>
+      </figure>
+
+      <div class="product-detail__info">
+        <h1 id="product-name"></h1>
+        <p class="price" id="product-price"></p>
+        <p class="category" id="product-category"></p>
+        <p class="description" id="product-description"></p>
+        <p class="stock-status" id="stock-status" aria-live="polite"></p>
+
+        <div class="product-detail__actions">
+          <label for="quantity-input" class="sr-only">Quantity</label>
+          <input
+            type="number"
+            id="quantity-input"
+            min="1"
+            value="1"
+            aria-label="Quantity"
+          />
+          <button
+            id="add-to-cart"
+            type="button"
+            class="btn btn-primary"
+            aria-describedby="stock-status"
+          >
+            Add to Cart
+          </button>
+        </div>
+
+        <!-- Aria assertive region for cart feedback messages -->
+        <div id="cart-feedback" role="alert" aria-live="assertive"></div>
+      </div>
+    </article>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container">
+      <p>&copy; <span id="footer-year"></span> Alpha Store. All rights reserved.</p>
+    </div>
+  </footer>
+
+  <script>
+    document.getElementById('footer-year').textContent = new Date().getFullYear();
+  </script>
+  <script src="js/product-detail.js" type="module" defer></script>
+</body>
+</html>

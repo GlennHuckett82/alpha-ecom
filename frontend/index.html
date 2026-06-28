@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Browse our full range of products." />
+  <title>Alpha Store — Products</title>
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+
+  <header class="site-header">
+    <div class="container header-inner">
+      <a href="index.html" class="site-logo">Alpha Store</a>
+      <nav aria-label="Primary navigation">
+        <a href="index.html">Shop</a>
+        <a href="cart.html" class="cart-link" aria-label="Shopping cart, 0 items">
+          <span class="cart-icon" aria-hidden="true">🛒</span>
+          <span class="cart-badge" id="cart-badge" aria-live="polite">0</span>
+        </a>
+      </nav>
+    </div>
+  </header>
+
+  <main id="product-listing" class="container">
+    <h1>Our Products</h1>
+
+    <!-- Search & Filter — implemented in P33/P38 -->
+    <section class="filters" aria-label="Filter products">
+      <input
+        type="search"
+        id="search-input"
+        placeholder="Search products…"
+        aria-label="Search products"
+      />
+      <select id="category-filter" aria-label="Filter by category">
+        <option value="">All Categories</option>
+      </select>
+    </section>
+
+    <!-- Aria live region for loading/error announcements -->
+    <div role="status" aria-live="polite" id="listing-status" class="sr-only"></div>
+
+    <!-- Product grid — populated by JS -->
+    <ul id="product-grid" aria-label="Product listings" class="product-grid"></ul>
+
+    <!-- Product card template — cloned by JS -->
+    <template id="product-card-template">
+      <li class="product-card-wrapper">
+        <article class="product-card">
+          <div class="product-card__image-wrap">
+            <img src="" alt="" loading="lazy" decoding="async" />
+          </div>
+          <div class="product-card__body">
+            <h2 class="product-card__name"></h2>
+            <p class="product-card__category"></p>
+            <p class="product-card__price"></p>
+          </div>
+          <div class="product-card__footer">
+            <a href="" class="btn btn-secondary product-card__details-link">View Details</a>
+            <button type="button" class="btn btn-primary add-to-cart-btn">Add to Cart</button>
+          </div>
+        </article>
+      </li>
+    </template>
+
+    <!-- Pagination — wired up in P33 -->
+    <nav aria-label="Pagination" class="pagination">
+      <button id="prev-page" class="btn" disabled>← Prev</button>
+      <span id="page-info" aria-live="polite"></span>
+      <button id="next-page" class="btn">Next →</button>
+    </nav>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container">
+      <p>&copy; <span id="footer-year"></span> Alpha Store. All rights reserved.</p>
+    </div>
+  </footer>
+
+  <script>
+    document.getElementById('footer-year').textContent = new Date().getFullYear();
+  </script>
+  <script src="js/main.js" type="module" defer></script>
+</body>
+</html>

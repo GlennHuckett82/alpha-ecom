@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Your shopping cart." />
+  <title>Cart — Alpha Store</title>
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+
+  <header class="site-header">
+    <div class="container header-inner">
+      <a href="index.html" class="site-logo">Alpha Store</a>
+      <nav aria-label="Primary navigation">
+        <a href="index.html">Shop</a>
+        <a href="cart.html" class="cart-link" aria-current="page" aria-label="Shopping cart">
+          <span class="cart-icon" aria-hidden="true">🛒</span>
+          <span class="cart-badge" id="cart-badge" aria-live="polite">0</span>
+        </a>
+      </nav>
+    </div>
+  </header>
+
+  <main id="cart-page" class="container">
+    <h1>Your Cart</h1>
+
+    <!-- Aria live region for loading/error states -->
+    <div role="status" aria-live="polite" id="cart-status"></div>
+
+    <!-- Cart items list — populated by JS in P36 -->
+    <ul id="cart-items" aria-label="Cart items" class="cart-items"></ul>
+
+    <!-- Cart item template — cloned by JS -->
+    <template id="cart-item-template">
+      <li class="cart-item">
+        <span class="cart-item__name"></span>
+        <label class="sr-only">Quantity</label>
+        <input type="number" class="cart-item__qty" min="1" />
+        <span class="cart-item__unit-price"></span>
+        <span class="cart-item__subtotal"></span>
+        <button type="button" class="btn btn-danger cart-item__remove">Remove</button>
+      </li>
+    </template>
+
+    <!-- Cart summary -->
+    <section id="cart-summary" class="cart-summary" aria-label="Cart summary">
+      <p>Subtotal: <strong id="cart-subtotal">£0.00</strong></p>
+      <button id="checkout-btn" type="button" class="btn btn-primary">Proceed to Checkout</button>
+    </section>
+
+    <!-- Order form — shown when checkout is clicked -->
+    <aside id="order-form-container" class="order-form-container" hidden>
+      <h2>Shipping &amp; Payment</h2>
+      <form id="order-form" novalidate>
+        <fieldset>
+          <legend>Shipping Address</legend>
+          <div class="form-group">
+            <label for="street">Street</label>
+            <input type="text" id="street" name="street" autocomplete="street-address" required />
+            <span class="field-error" id="street-error" aria-live="polite"></span>
+          </div>
+          <div class="form-group">
+            <label for="city">City</label>
+            <input type="text" id="city" name="city" autocomplete="address-level2" required />
+            <span class="field-error" id="city-error" aria-live="polite"></span>
+          </div>
+          <div class="form-group">
+            <label for="postcode">Postcode</label>
+            <input type="text" id="postcode" name="postcode" autocomplete="postal-code" required />
+            <span class="field-error" id="postcode-error" aria-live="polite"></span>
+          </div>
+          <div class="form-group">
+            <label for="country">Country</label>
+            <input type="text" id="country" name="country" autocomplete="country-name" required />
+            <span class="field-error" id="country-error" aria-live="polite"></span>
+          </div>
+        </fieldset>
+
+        <fieldset>
+          <legend>Payment</legend>
+          <div class="form-group">
+            <label for="card-last-four">Last 4 digits of card</label>
+            <input
+              type="text"
+              id="card-last-four"
+              name="cardLastFour"
+              maxlength="4"
+              inputmode="numeric"
+              pattern="\d{4}"
+              required
+            />
+            <span class="field-error" id="card-error" aria-live="polite"></span>
+          </div>
+        </fieldset>
+
+        <button type="submit" class="btn btn-primary" id="place-order-btn">Place Order</button>
+      </form>
+    </aside>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container">
+      <p>&copy; <span id="footer-year"></span> Alpha Store. All rights reserved.</p>
+    </div>
+  </footer>
+
+  <script>
+    document.getElementById('footer-year').textContent = new Date().getFullYear();
+  </script>
+  <script src="js/cart.js" type="module" defer></script>
+</body>
+</html>

@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Your order has been placed successfully." />
+  <title>Order Confirmed — Alpha Store</title>
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+
+  <header class="site-header">
+    <div class="container header-inner">
+      <a href="index.html" class="site-logo">Alpha Store</a>
+      <nav aria-label="Primary navigation">
+        <a href="index.html">Shop</a>
+      </nav>
+    </div>
+  </header>
+
+  <main id="confirmation-page" class="container">
+    <!-- Aria live region for loading/error states -->
+    <div role="status" aria-live="polite" id="confirmation-status"></div>
+
+    <section class="order-confirmation" aria-labelledby="confirmation-heading">
+      <div class="confirmation-icon" aria-hidden="true"></div>
+      <h1 id="confirmation-heading">Order Confirmed!</h1>
+      <p>Thank you for your purchase.</p>
+      <p>
+        Your order ID is:
+        <strong id="order-id">Loading…</strong>
+      </p>
+      <div id="order-summary"></div>
+      <a href="index.html" class="btn btn-primary">Continue Shopping</a>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container">
+      <p>&copy; <span id="footer-year"></span> Alpha Store. All rights reserved.</p>
+    </div>
+  </footer>
+
+  <script>
+    document.getElementById('footer-year').textContent = new Date().getFullYear();
+  </script>
+  <script src="js/order-confirmation.js" type="module" defer></script>
+</body>
+</html>
