@@ -2,6 +2,7 @@
 
 const { Router } = require('express');
 const { query, param, validationResult } = require('express-validator');
+const mongoose = require('mongoose');
 const Product = require('../models/product.model');
 
 const router = Router();
@@ -28,6 +29,10 @@ const listValidation = [
     .isInt({ min: 1 })
     .withMessage('limit must be a positive integer')
     .toInt(),
+  query('cursor')
+    .optional()
+    .isMongoId()
+    .withMessage('cursor must be a valid MongoDB ObjectId'),
   query('category')
     .optional()
     .trim()
@@ -44,17 +49,27 @@ const idValidation = [
 ];
 
 // ─── GET /api/products ────────────────────────────────────────────────────────
+//
+// Two modes, selected by the presence of ?page=:
+//
+//   Cursor mode  (default, no ?page=)
+//     – Uses ?cursor= (last _id from previous page) + ?limit=
+//     – Query: { _id: { $gt: cursor } } sorted by _id ASC
+//     – Returns: { success, data, nextCursor, hasNextPage }
+//     – Efficient: uses the _id index, no COUNT(*) needed
+//
+//   Offset mode  (?page= present — backward compatibility)
+//     – Uses ?page= + ?limit= (classic skip/limit)
+//     – Returns: { success, data, pagination: { page, limit, total, … } }
 
 router.get('/', listValidation, async (req, res, next) => {
   const invalid = handleValidationErrors(req, res);
   if (invalid) return;
 
   try {
-    const page  = req.query.page  || 1;
     const limit = Math.min(req.query.limit || 12, 50);
-    const skip  = (page - 1) * limit;
 
-    // Build filter
+    // Build shared filter (applies to both modes)
     const filter = {};
     if (req.query.category) {
       filter.category = req.query.category.toLowerCase();
@@ -63,24 +78,53 @@ router.get('/', listValidation, async (req, res, next) => {
       filter.$text = { $search: req.query.search };
     }
 
-    const [products, total] = await Promise.all([
-      Product.find(filter).skip(skip).limit(limit).lean(),
-      Product.countDocuments(filter),
-    ]);
+    // ── Offset mode (?page= present) ──────────────────────────────────────────
+    if (req.query.page !== undefined) {
+      const page  = req.query.page;
+      const skip  = (page - 1) * limit;
 
-    const totalPages = total > 0 ? Math.ceil(total / limit) : 0;
+      const [products, total] = await Promise.all([
+        Product.find(filter).skip(skip).limit(limit).lean(),
+        Product.countDocuments(filter),
+      ]);
+
+      const totalPages = total > 0 ? Math.ceil(total / limit) : 0;
+
+      return res.status(200).json({
+        success: true,
+        data: products,
+        pagination: {
+          page,
+          limit,
+          total,
+          totalPages,
+          hasNextPage: page < totalPages,
+          hasPrevPage: page > 1,
+        },
+      });
+    }
+
+    // ── Cursor mode (default) ─────────────────────────────────────────────────
+    if (req.query.cursor) {
+      filter._id = { $gt: new mongoose.Types.ObjectId(req.query.cursor) };
+    }
+
+    // Fetch limit+1 to detect whether a next page exists without COUNT(*)
+    const products = await Product
+      .find(filter)
+      .sort({ _id: 1 })
+      .limit(limit + 1)
+      .lean();
+
+    const hasNextPage = products.length > limit;
+    const data        = hasNextPage ? products.slice(0, limit) : products;
+    const nextCursor  = hasNextPage ? data[data.length - 1]._id.toString() : null;
 
     return res.status(200).json({
       success: true,
-      data: products,
-      pagination: {
-        page,
-        limit,
-        total,
-        totalPages,
-        hasNextPage: page < totalPages,
-        hasPrevPage: page > 1,
-      },
+      data,
+      nextCursor,
+      hasNextPage,
     });
   } catch (err) {
     return next(err);

@@ -41,17 +41,24 @@ beforeAll(async () => {
 
 describe('GET /api/products', () => {
   describe('response shape', () => {
-    it('returns 200 with success:true, data array, and pagination object', async () => {
+    it('returns 200 with success:true and a data array in both modes', async () => {
       const res = await request(app).get('/api/products');
 
       expect(res.statusCode).toBe(200);
       expect(res.body.success).toBe(true);
       expect(Array.isArray(res.body.data)).toBe(true);
-      expect(res.body.pagination).toBeDefined();
     });
 
-    it('pagination object contains page, limit, total, totalPages, hasNextPage, hasPrevPage', async () => {
+    it('cursor mode (default, no ?page=) returns nextCursor and hasNextPage — not pagination', async () => {
       const res = await request(app).get('/api/products');
+
+      expect(res.body).toHaveProperty('nextCursor');
+      expect(res.body).toHaveProperty('hasNextPage');
+      expect(res.body.pagination).toBeUndefined();
+    });
+
+    it('offset mode (?page=) returns pagination object with all required fields', async () => {
+      const res = await request(app).get('/api/products?page=1');
       const { pagination } = res.body;
 
       expect(pagination).toHaveProperty('page');
@@ -66,7 +73,6 @@ describe('GET /api/products', () => {
       const res = await request(app).get('/api/products');
 
       expect(res.body.data).toHaveLength(0);
-      expect(res.body.pagination.total).toBe(0);
     });
   });
 
@@ -75,8 +81,8 @@ describe('GET /api/products', () => {
       await seedProducts(25);
     });
 
-    it('defaults to page 1 and limit 12', async () => {
-      const res = await request(app).get('/api/products');
+    it('defaults to page 1 and limit 12 in offset mode (?page=1)', async () => {
+      const res = await request(app).get('/api/products?page=1');
 
       expect(res.body.pagination.page).toBe(1);
       expect(res.body.pagination.limit).toBe(12);
@@ -92,7 +98,7 @@ describe('GET /api/products', () => {
     });
 
     it('returns correct total and totalPages', async () => {
-      const res = await request(app).get('/api/products?limit=10');
+      const res = await request(app).get('/api/products?page=1&limit=10');
 
       expect(res.body.pagination.total).toBe(25);
       expect(res.body.pagination.totalPages).toBe(3); // ceil(25/10)
@@ -118,12 +124,12 @@ describe('GET /api/products', () => {
       expect(res.body.pagination.hasPrevPage).toBe(true);
     });
 
-    it('caps limit at 50', async () => {
+    it('caps limit at 50 in offset mode', async () => {
       await seedProducts(60); // total now 85
-      const res = await request(app).get('/api/products?limit=100');
+      const res = await request(app).get('/api/products?page=1&limit=100');
 
       expect(res.body.pagination.limit).toBe(50);
-      expect(res.body.data.length).toBeLessThanOrEqual(50);
+      expect(res.body.data).toHaveLength(50);
     });
 
     it('returns an empty data array for a page beyond the last', async () => {
@@ -156,14 +162,14 @@ describe('GET /api/products', () => {
     });
 
     it('returns empty data when category has no matches', async () => {
-      const res = await request(app).get('/api/products?category=nonexistent');
+      const res = await request(app).get('/api/products?page=1&category=nonexistent');
 
       expect(res.body.data).toHaveLength(0);
       expect(res.body.pagination.total).toBe(0);
     });
 
     it('pagination total reflects filtered count, not overall count', async () => {
-      const res = await request(app).get('/api/products?category=clothing');
+      const res = await request(app).get('/api/products?page=1&category=clothing');
 
       expect(res.body.pagination.total).toBe(2);
     });
@@ -220,6 +226,94 @@ describe('GET /api/products', () => {
     it('returns 422 when limit is 0', async () => {
       const res = await request(app).get('/api/products?limit=0');
       expect(res.statusCode).toBe(422);
+    });
+
+    it('returns 422 when cursor is not a valid MongoDB ObjectId', async () => {
+      const res = await request(app).get('/api/products?cursor=not-a-valid-id');
+      expect(res.statusCode).toBe(422);
+      expect(res.body.success).toBe(false);
+    });
+  });
+
+  // ─── Cursor-based pagination ─────────────────────────────────────────────────
+
+  describe('cursor-based pagination', () => {
+    beforeEach(async () => {
+      await seedProducts(15);
+    });
+
+    it('first page (no cursor) returns up to limit items with nextCursor', async () => {
+      const res = await request(app).get('/api/products?limit=5');
+
+      expect(res.statusCode).toBe(200);
+      expect(res.body.data).toHaveLength(5);
+      expect(typeof res.body.nextCursor).toBe('string');
+      expect(res.body.hasNextPage).toBe(true);
+    });
+
+    it('subsequent page (with cursor) returns the next distinct batch', async () => {
+      const page1 = await request(app).get('/api/products?limit=5');
+      const cursor = page1.body.nextCursor;
+
+      const page2 = await request(app).get(`/api/products?limit=5&cursor=${cursor}`);
+
+      expect(page2.statusCode).toBe(200);
+      expect(page2.body.data).toHaveLength(5);
+
+      // No overlap between pages
+      const ids1 = new Set(page1.body.data.map((p) => p._id));
+      page2.body.data.forEach((p) => expect(ids1.has(p._id)).toBe(false));
+    });
+
+    it('last page has hasNextPage: false and nextCursor: null', async () => {
+      // 15 products total; first page takes 10, leaving 5
+      const page1 = await request(app).get('/api/products?limit=10');
+      const page2 = await request(app).get(
+        `/api/products?limit=10&cursor=${page1.body.nextCursor}`,
+      );
+
+      expect(page2.body.data).toHaveLength(5);
+      expect(page2.body.hasNextPage).toBe(false);
+      expect(page2.body.nextCursor).toBeNull();
+    });
+
+    it('all pages together cover every product without duplicates', async () => {
+      const page1 = await request(app).get('/api/products?limit=6');
+      const page2 = await request(app).get(
+        `/api/products?limit=6&cursor=${page1.body.nextCursor}`,
+      );
+      const page3 = await request(app).get(
+        `/api/products?limit=6&cursor=${page2.body.nextCursor}`,
+      );
+
+      const allIds = [
+        ...page1.body.data.map((p) => p._id),
+        ...page2.body.data.map((p) => p._id),
+        ...page3.body.data.map((p) => p._id),
+      ];
+      expect(new Set(allIds).size).toBe(15);
+      expect(page3.body.hasNextPage).toBe(false);
+    });
+
+    it('caps limit at 50 in cursor mode', async () => {
+      await seedProducts(60); // 75 total
+      const res = await request(app).get('/api/products?limit=100');
+
+      expect(res.body.data).toHaveLength(50);
+      expect(res.body.hasNextPage).toBe(true);
+    });
+
+    it('returns empty data, null nextCursor, hasNextPage: false when filter matches nothing', async () => {
+      const res = await request(app).get('/api/products?category=nonexistent-cat');
+
+      expect(res.body.data).toHaveLength(0);
+      expect(res.body.nextCursor).toBeNull();
+      expect(res.body.hasNextPage).toBe(false);
+    });
+
+    it('cursor mode does not expose pagination object', async () => {
+      const res = await request(app).get('/api/products?limit=5');
+      expect(res.body.pagination).toBeUndefined();
     });
   });
 });
