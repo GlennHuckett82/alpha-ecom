@@ -832,4 +832,276 @@ legend {
   border: 1px solid var(--color-border);
 }
 
-/* ─── P31: Loading skeletons · Error states ────────────────────────────────── */
+/* ─── P31: Loading skeletons · Error & empty states · Toast · Print ────────── */
+
+/* ── 1. Skeleton loading animation ──────────────────────────────────────── */
+
+@keyframes shimmer {
+  from { background-position: -200% center; }
+  to   { background-position:  200% center; }
+}
+
+/* Base skeleton class — applied to any placeholder element */
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--color-surface)    0%,
+    var(--color-border)    40%,
+    var(--color-surface)  100%
+  );
+  background-size: 200% 100%;
+  border-radius: var(--border-radius);
+  color: transparent;        /* hide any text content */
+  user-select: none;
+  pointer-events: none;
+}
+
+/* Honour reduced-motion preference — static placeholder instead of shimmer */
+@media (prefers-reduced-motion: no-preference) {
+  .skeleton {
+    animation: shimmer 1.6s ease-in-out infinite;
+  }
+}
+
+/* Skeleton card — matches .product-card proportions */
+.skeleton-card {
+  display: flex;
+  flex-direction: column;
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--border-radius-lg);
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+}
+
+.skeleton-card__image {
+  aspect-ratio: 4 / 3;
+}
+
+.skeleton-card__body {
+  padding: var(--spacing-md);
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+}
+
+/* Skeleton text lines — set width on the element to vary line lengths */
+.skeleton-text {
+  height: 1em;
+  border-radius: 999px;       /* pill shape mimics text */
+}
+
+.skeleton-text--lg {
+  height: 1.4em;
+}
+
+.skeleton-text--sm {
+  height: 0.75em;
+}
+
+/* Convenience width modifiers */
+.skeleton-text--w100 { width: 100%; }
+.skeleton-text--w75  { width: 75%;  }
+.skeleton-text--w50  { width: 50%;  }
+.skeleton-text--w33  { width: 33%;  }
+
+/* ── 2. Error message ─────────────────────────────────────────────────────── */
+
+/* Inline error banner — used inside #listing-status, #detail-status etc. */
+.error-message {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-sm) var(--spacing-md);
+  color: var(--color-error);
+  background-color: var(--color-error-bg);
+  border: 1px solid var(--color-error);
+  border-radius: var(--border-radius);
+  font-size: var(--text-sm);
+  line-height: var(--leading-body);
+}
+
+/* Warning triangle drawn with CSS (unicode fallback for old browsers) */
+.error-message::before {
+  content: "⚠";
+  font-size: 1.1em;
+  line-height: 1;
+  flex-shrink: 0;
+  aria-hidden: true;   /* decorative — real text carries the message */
+}
+
+/* ── 3. Empty state ───────────────────────────────────────────────────────── */
+
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: var(--spacing-md);
+  padding: var(--spacing-2xl) var(--spacing-lg);
+  color: var(--color-text-muted);
+}
+
+/* CSS-only illustration: large dashed circle with a question mark */
+.empty-state__icon {
+  width: 6rem;
+  height: 6rem;
+  border-radius: 50%;
+  border: 3px dashed var(--color-border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2.5rem;
+  color: var(--color-border);
+}
+
+/* Override icon content per context via data attribute */
+.empty-state__icon::before {
+  content: attr(data-icon);
+}
+
+.empty-state__title {
+  font-size: var(--text-lg);
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.empty-state__message {
+  font-size: var(--text-base);
+  max-width: 30ch;
+}
+
+/* ── 4. Toast / notification ─────────────────────────────────────────────── */
+
+@keyframes slide-in {
+  from { transform: translateY(120%); opacity: 0; }
+  to   { transform: translateY(0);    opacity: 1; }
+}
+
+@keyframes slide-out {
+  from { transform: translateY(0);    opacity: 1; }
+  to   { transform: translateY(120%); opacity: 0; }
+}
+
+.toast {
+  position: fixed;
+  bottom: var(--spacing-lg);
+  right: var(--spacing-lg);
+  z-index: var(--z-toast);
+
+  display: flex;
+  align-items: flex-start;
+  gap: var(--spacing-sm);
+
+  max-width: min(24rem, calc(100vw - 2 * var(--spacing-lg)));
+  padding: var(--spacing-sm) var(--spacing-md);
+
+  background-color: var(--color-text);  /* dark background = high contrast */
+  color: #fff;
+  border-radius: var(--border-radius-lg);
+  box-shadow: var(--shadow-lg);
+
+  font-size: var(--text-sm);
+  font-weight: 500;
+  line-height: var(--leading-body);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .toast {
+    animation:
+      slide-in  0.3s ease-out both,
+      slide-out 0.4s ease-in  4.6s both;   /* auto-hide: visible for ~4.6s */
+  }
+}
+
+/* Variant: success */
+.toast--success {
+  background-color: var(--color-success);
+}
+
+/* Variant: error */
+.toast--error {
+  background-color: var(--color-error);
+}
+
+/* Status icon prefix per variant */
+.toast--success::before { content: "✓ "; font-weight: 700; }
+.toast--error::before   { content: "✕ "; font-weight: 700; }
+
+/* ── 5. Focus-visible — reinforced interactive-element coverage ──────────── */
+/*
+   The global :focus-visible rule in section 4 already handles most elements.
+   These rules ensure inputs, selects, and textareas in forms also get the
+   ring treatment, and that the contrast of the focus indicator (blue on white)
+   meets WCAG 3:1 against adjacent colours.
+*/
+
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+[tabindex]:focus-visible {
+  outline: 3px solid var(--color-primary);   /* #1a73e8 — 3.07:1 on white */
+  outline-offset: 3px;
+  border-radius: var(--border-radius);
+}
+
+/* Custom checkbox / radio focus ring */
+input[type="checkbox"]:focus-visible,
+input[type="radio"]:focus-visible {
+  outline: 3px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+/* ── 6. Print media query ────────────────────────────────────────────────── */
+
+@media print {
+  /* Hide navigation chrome */
+  .site-header,
+  .site-footer,
+  .filters,
+  .pagination,
+  #cart-summary,
+  .order-form-container,
+  .btn,
+  .toast {
+    display: none !important;
+  }
+
+  /* Reset layout for clean printout */
+  body {
+    font-size: 12pt;
+    color: #000;
+    background: #fff;
+  }
+
+  /* Show product grid as a simple block list */
+  #product-grid {
+    display: block;
+  }
+
+  .product-card {
+    break-inside: avoid;
+    box-shadow: none;
+    border: 1px solid #ccc;
+    margin-block-end: 1rem;
+  }
+
+  /* Expand truncated product names */
+  .product-card__name {
+    -webkit-line-clamp: unset;
+    overflow: visible;
+  }
+
+  /* Show full URLs for links */
+  a[href]::after {
+    content: " (" attr(href) ")";
+    font-size: 0.75em;
+    color: #555;
+  }
+
+  /* Hide decorative elements */
+  .confirmation-icon,
+  .cart-icon {
+    display: none;
+  }
+}
