@@ -6,6 +6,7 @@
   "scripts": {
     "start": "node server.js",
     "dev": "nodemon server.js",
+    "db:indexes": "node scripts/createIndexes.js",
     "test": "jest --no-coverage",
     "test:coverage": "jest --coverage",
     "test:watch": "jest --watch",
