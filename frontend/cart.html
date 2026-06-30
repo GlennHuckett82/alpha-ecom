@@ -35,11 +35,11 @@
     <template id="cart-item-template">
       <li class="cart-item">
         <span class="cart-item__name"></span>
-        <label class="sr-only">Quantity</label>
-        <input type="number" class="cart-item__qty" min="1" />
+        <label class="sr-only cart-item__qty-label" for="">Quantity</label>
+        <input type="number" class="cart-item__qty" min="1" aria-label="Quantity" />
         <span class="cart-item__unit-price"></span>
         <span class="cart-item__subtotal"></span>
-        <button type="button" class="btn btn-danger cart-item__remove">Remove</button>
+        <button type="button" class="btn btn-danger cart-item__remove" aria-label="Remove item">Remove</button>
       </li>
     </template>
 
